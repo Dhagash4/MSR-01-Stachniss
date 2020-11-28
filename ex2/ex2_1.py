@@ -26,22 +26,26 @@ def motion_model(action, belief):
     
     p_ff = p_bb = 0.7
     p_bf = p_fb = 0.1
-    p_stay = 0.2
+    p_stay      = 0.2
     
     belief_out = np.zeros(len(belief))
         
     if action == "F":
         
         for i in range(len(belief)):
+            
+#Calculating the update for cell in between 0 to 14, basically one cell can be reached if F is the command by either it moves forward from xcell-1 or it moves backward from xcell+1 or it stays where it is
+        
 
             if i < 14 and i > 0:
 
                 belief_out[i] = (belief[i-1]*p_ff + belief[i+1]*p_fb + belief[i] * p_stay)
 
+#for 0 given the forward update you change its belief in two cases either it is there or moves backward from xcell+1
             elif i == 0:
                 
                 belief_out[i] = (belief[i+1] * p_fb + belief[i] * p_stay)
-
+#for 14 given the forward update you change its belief in two cases either it is there or moves forward from xcell-1
             else:
 
                 belief_out[i] = (belief[i-1] * p_ff + belief[i] * p_stay)
@@ -49,21 +53,24 @@ def motion_model(action, belief):
     else:
         
         for i in range(len(belief)):
-
+#Calculating the update for cell in between 0 to 14, basically one cell can be reached if B is the command by either it moves backward from xcell+1 or it moves forward from xcell-1 or it stays where it is
             if i < 14 and i > 0:
 
                 belief_out[i] = (belief[i+1] * p_bb + belief[i-1] * p_fb + belief[i] * p_stay)
-
+            
+#for 0 given the backward update you change its belief in two cases either it is there or moves backward from xcell+1
             elif i == 0:
 
                 belief_out[i] = (belief[i+1] * p_bb + belief[i] * p_stay)
 
+#for 14 given the backward update you change its belief in two cases either it is there or moves forward from xcell-1
             else:
 
                 belief_out[i] = (belief[i-1] * p_bf + belief[i] * p_stay)
                 
     
     return belief_out
+
 
     
 def sensor_model(observation, belief, world):
@@ -75,13 +82,13 @@ def sensor_model(observation, belief, world):
     if observation == 0:
         
         for i,val in enumerate(world):
-            
+#Assuming the sensor and the measurement and in world both are same like black observation and black in world also
             if val == 0:
-                
                 belief_out[i] = p_black * belief[i]
+
             
+#Accounting for sensor noise in the sensor that the world is white and sensor gives black
             else:
-                
                 belief_out[i] = (1-p_white) * belief[i]
         
         
@@ -97,7 +104,7 @@ def sensor_model(observation, belief, world):
                 
                 belief_out[i] = (1-p_black) * belief[i]
     
-    
+#Normalizing it to get the PDF so sum of all elements must be one
     return belief_out/sum(belief_out)
 
 def recursive_bayes_filter(actions, observations, belief, world):
