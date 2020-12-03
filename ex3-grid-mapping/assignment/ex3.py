@@ -14,6 +14,7 @@ def init_gridmap(size, res):
     return gridmap
 
 def world2map(pose, gridmap, map_res):
+    
     origin = np.array(gridmap.shape)/2
     new_pose = np.zeros((pose.shape))
     new_pose[0:] = np.round(pose[0:]/map_res) + origin[0]
@@ -63,7 +64,7 @@ def bresenham(x0, y0, x1, y1):
     
 def prob2logodds(p):
     
-    logodds = np.log(p / (1-p))
+    logodds = np.log(p/(1-p))
     return logodds
     
 def logodds2prob(l):
@@ -89,9 +90,7 @@ def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, p
     
     poses = poses2cells(poses_raw,occ_gridmap,map_res)
     
-    for k in range(occ_gridmap.shape[0]):
-        for l in range(occ_gridmap.shape[1]):
-            occ_gridmap[k][l] = prob2logodds(occ_gridmap[k][l])
+    occ_gridmap = prob2logodds(occ_gridmap)
     
     occ_gridmap_prior = occ_gridmap
 
@@ -103,10 +102,6 @@ def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, p
             
             occ_gridmap = inv_sensor_model(poses[i],ranges[j],prob_occ,prob_free,occ_gridmap_prior) + occ_gridmap - prob2logodds(prior)
 
-    for m in range(occ_gridmap.shape[0]):
-
-        for n in range(occ_gridmap.shape[1]):
-
-            occ_gridmap[m][n] = logodds2prob(occ_gridmap[m][n])
-
+    occ_gridmap = logodds2prob(occ_gridmap)
+    
     return occ_gridmap
