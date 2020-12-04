@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import bresenham as bh
-import ipdb
+
 
 def plot_gridmap(gridmap):
     plt.figure()
