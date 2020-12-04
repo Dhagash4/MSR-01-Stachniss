@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import bresenham as bh
+import ipdb
 
 def plot_gridmap(gridmap):
     plt.figure()
@@ -58,13 +59,16 @@ def poses2cells(w_pose, gridmap, map_res):
     return m_pose  
 
 def bresenham(x0, y0, x1, y1):
+    
     l = np.array(list(bh.bresenham(x0, y0, x1, y1)))
+    
     return l
 
     
 def prob2logodds(p):
     
     logodds = np.log(p/(1-p))
+    
     return logodds
     
 def logodds2prob(l):
@@ -73,16 +77,19 @@ def logodds2prob(l):
     
     return prob
     
-def inv_sensor_model(cell, endpoint, prob_occ, prob_free,occ_gridmap):
+def inv_sensor_model(cell, endpoint, prob_occ, prob_free):
     
     line =  bresenham(cell[0],cell[1],endpoint[0],endpoint[1])
+    prob_values = []
 
     for i in range(len(line)-1):
-        occ_gridmap[line[i][0]][line[i][1]] = prob2logodds(prob_free)
+        prob_values.append(prob_free)
     
-    occ_gridmap[line[len(line)-1][0]][line[len(line)-1][1]] = prob2logodds(prob_occ)
+    prob_values.append(prob_occ)
+    prob_values = np.array(prob_values).reshape((len(line),1))
+    inv_sensor_model = np.hstack((line,prob_values))
     
-    return occ_gridmap
+    return inv_sensor_model
 
 
 def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, prob_occ, prob_free, prior):
@@ -91,8 +98,6 @@ def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, p
     poses = poses2cells(poses_raw,occ_gridmap,map_res)
     
     occ_gridmap = prob2logodds(occ_gridmap)
-    
-    occ_gridmap_prior = occ_gridmap
 
     for i in range(poses.shape[0]):
 
@@ -100,8 +105,15 @@ def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, p
         
         for j in range(ranges.shape[0]):
             
-            occ_gridmap = inv_sensor_model(poses[i],ranges[j],prob_occ,prob_free,occ_gridmap_prior) + occ_gridmap - prob2logodds(prior)
+            inv_sensor_val = inv_sensor_model(poses[i],ranges[j],prob_occ,prob_free)
 
+            for k in range(len(inv_sensor_val)):
+
+                cell = np.array([[int(inv_sensor_val[k][0]),int(inv_sensor_val[k][1])]])
+
+                occ_gridmap[cell[0][0]][cell[0][1]] =  occ_gridmap[cell[0][0]][cell[0][1]] + prob2logodds(inv_sensor_val[k][2])  - prob2logodds(prior)
+                
+    
     occ_gridmap = logodds2prob(occ_gridmap)
     
     return occ_gridmap
