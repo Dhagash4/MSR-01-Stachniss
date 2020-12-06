@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import bresenham as bh
-
+import math
 
 def plot_gridmap(gridmap):
     plt.figure()
@@ -59,26 +59,21 @@ def poses2cells(w_pose, gridmap, map_res):
     return m_pose  
 
 def bresenham(x0, y0, x1, y1):
-    
     l = np.array(list(bh.bresenham(x0, y0, x1, y1)))
-    
     return l
-
     
 def prob2logodds(p):
-    
+    # add code here
     logodds = np.log(p/(1-p))
-    
     return logodds
     
 def logodds2prob(l):
-    
+
     prob = 1 - (1 / (1 + np.exp(l)))
-    
     return prob
-    
+
+
 def inv_sensor_model(cell, endpoint, prob_occ, prob_free):
-    
     line =  bresenham(cell[0],cell[1],endpoint[0],endpoint[1])
     prob_values = []
 
@@ -90,30 +85,31 @@ def inv_sensor_model(cell, endpoint, prob_occ, prob_free):
     inv_sensor_model = np.hstack((line,prob_values))
     
     return inv_sensor_model
-
-
+    
 def grid_mapping_with_known_poses(ranges_raw, poses_raw, occ_gridmap, map_res, prob_occ, prob_free, prior):
+
+    #Known Poses for the grid mapping
+    poses = poses2cells(poses_raw,occ_gridmap,map_res) 
     
-    
-    poses = poses2cells(poses_raw,occ_gridmap,map_res)
-    
+    #Converting cell value to the log value
     occ_gridmap = prob2logodds(occ_gridmap)
 
+    #Given Sensor range value for every pose
     for i in range(poses.shape[0]):
-
         ranges = ranges2cells(ranges_raw[i],poses_raw[i],occ_gridmap,map_res).transpose()
-        
+     
+        #update the probability within the senor range. 
         for j in range(ranges.shape[0]):
-            
             inv_sensor_val = inv_sensor_model(poses[i],ranges[j],prob_occ,prob_free)
 
+            #Update the cell 
             for k in range(len(inv_sensor_val)):
-
                 cell = np.array([[int(inv_sensor_val[k][0]),int(inv_sensor_val[k][1])]])
 
+                #update the grid map by converting probiblity output from the sensor to logvalue and add it to grid value.
                 occ_gridmap[cell[0][0]][cell[0][1]] =  occ_gridmap[cell[0][0]][cell[0][1]] + prob2logodds(inv_sensor_val[k][2])  - prob2logodds(prior)
                 
-    
+    #The cell value are converted back probability.
     occ_gridmap = logodds2prob(occ_gridmap)
     
     return occ_gridmap
