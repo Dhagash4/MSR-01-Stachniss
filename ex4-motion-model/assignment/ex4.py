@@ -2,7 +2,7 @@
 
 import math
 import numpy as np
-
+import random
 
 def inv_motion_model(u_t):
 
@@ -29,3 +29,27 @@ def motion_model_odometry(x_init,x_query,u_t,alpha):
 
 
     return p1*p2*p3
+
+
+def sample_distribution(std):
+
+    return ((math.sqrt(6)/2)(random.random(-std,std)*1000+random.random(-std,std)*1000))
+
+
+def sample_motion_model(x_init,u_t,alpha):
+
+    rot1,trans, rot2 = inv_motion_model(u_t)
+
+
+    rot1_hat = rot1 + sample_distribution(alpha[0]* abs(rot1)+ alpha[1]*trans)
+    trans_hat = trans + sample_distribution(alpha[2]*trans + alpha[3] * (abs(rot1)+ abs(rot2)))
+    rot2_hat  = rot2 + sample_distribution(alpha[0] * abs(rot2)  + alpha[1] * trans)
+
+
+    x_new = x_init[0] + trans_hat * math.cos(x_init[2]+rot1_hat)
+    y_new = x_init[1] + trans_hat * math.sin(x_init[2]+rot1_hat)
+    theta_new = x_init[2] + rot1_hat + rot2_hat
+
+    return x_new,y_new,theta_new
+
+
