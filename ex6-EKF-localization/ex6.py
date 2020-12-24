@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 import numpy as np
 from matplotlib.patches import Ellipse
-
+from math import sin,cos,atan2,sqrt
+import ipdb
+import pickle
 
 def plot_state(mu, S, M):
 
@@ -40,7 +42,7 @@ def plot_2dcov(mu, cov):
     ellipse = Ellipse((mu[0], mu[1]),
                       width=a * 2,
                       height=b * 2,
-                      angle=np.deg2rad(theta),
+                      angle=np.rad2deg(theta),
                       edgecolor='blue',
                       alpha=0.3)
 
@@ -55,3 +57,107 @@ def wrapToPi(theta):
     while theta > np.pi:
         theta = theta - 2 * np.pi
     return theta
+
+
+def inv_motion_model(u_t):
+
+    trans = sqrt((u_t[1][0]-u_t[0][0])**2 + (u_t[1][1]-u_t[0][1])**2)
+    rot1  = wrapToPi(atan2((u_t[1][1]-u_t[0][1]),(u_t[1][0]-u_t[0][0])) - u_t[0][2])
+    rot2  = wrapToPi(u_t[1][2] - u_t[0][2] - rot1)
+    
+
+    return rot1, trans, rot2
+
+def ekf_predict(mu,sigma,u_t,R):
+
+    theta = mu[2][0]
+
+    rot1,trans,rot2 = inv_motion_model(u_t)
+
+    G_t = np.array([[1, 0, -trans * sin(theta + rot1)],
+                    [0, 1,  trans * cos(theta + rot1)],
+                    [0,0,1]])
+
+    V_t = np.array([[-trans * sin(theta + rot1), cos(theta + rot1),0],
+                    [trans * cos(theta + rot1), sin(theta + rot1),0],
+                    [0,0,1]])
+    mu_bar = mu + np.array([[trans * cos(theta + rot1)],
+                            [trans * sin(theta + rot1)],
+                            [rot1 + rot2]])
+                        
+    sigma_bar = G_t @ (sigma @ G_t.T) + V_t @ (R @ V_t.T)
+
+    return mu_bar,sigma_bar
+
+
+
+def ekf_correct(mu_bar,sigma_bar,z,Q,M):
+
+    
+    for i in range(z.shape[1]):
+
+        j = int(z[2,i])
+        lx = M[j,0]
+        ly = M[j,1]
+        
+        q = (lx - mu_bar[0,0]) ** 2  + (ly - mu_bar[1,0]) ** 2
+        dist =sqrt(q)
+        
+        #wrap to pi as the angle must be between -pi to pi everywhere we deal with the angle
+
+        z_hat = np.array([[dist],
+                          [wrapToPi(atan2(ly - mu_bar[1,0],lx - mu_bar[0,0]) - mu_bar[2,0])]])
+       
+        H_t = np.array(
+                [[-(lx - mu_bar[0, 0]) / dist, -(ly - mu_bar[1, 0]) / dist, 0],
+                [  (ly - mu_bar[1, 0]) / q,  -(lx - mu_bar[0, 0]) / q, -1]])
+
+        S = H_t @ sigma_bar @ H_t.T + Q
+   
+        K = sigma_bar @ H_t.T @ np.linalg.inv(S)
+      
+        mu_bar = mu_bar + (K @ (z[:2,i].reshape(2,1) - z_hat))
+        mu_bar[2,0] = wrapToPi(mu_bar[2,0]) 
+        sigma_bar = (np.identity(3) - (K @ H_t)) @ sigma_bar
+    
+    
+    return mu_bar,sigma_bar
+
+# if __name__ == "__main__":
+    
+#     data = pickle.load(open("dataset_2d_landmarks.p", "rb"))
+
+#     # get landmark coordinates 
+#     M = data['M']
+
+#     # get ground truth trajectory
+#     gt_traj = data['gt']
+#     # 3x3 process noise
+#     sigma_x = 0.25  # [m]
+#     sigma_y = 0.25  # [m]
+#     sigma_theta = np.deg2rad(10)  # [rad]
+#     R = np.diag(np.array([sigma_x, sigma_y, sigma_theta])**2)
+
+#     # 2x2 observation noise
+#     sigma_r = 0.1  # [m]
+#     sigma_phi = np.deg2rad(5)  # [rad]
+#     Q = np.diag(np.array([sigma_r, sigma_phi])**2)
+
+#     # initial state
+#     mu = np.array([2, 2, np.pi/2]) 
+#     S = np.array([[1, 0, 0],[0, 1, 0], [0, 0, np.pi/3]])
+
+# #     # visualize
+# #     # plt.figure()
+# #     # ex.plot_state(mu, S, M)
+    
+#     for i in range(1,len(data['odom'])):
+       
+#         u_t = [data['odom'][i-1],data['odom'][i]]
+#         z = data['z'][i]
+
+#         mu_bar,sigma_bar = ekf_predict(mu.reshape(3,1),S,u_t,R)
+  
+#         mu,S = ekf_correct(mu_bar,sigma_bar,z,Q,M)
+#         plot_state(mu,S,M)
+   
