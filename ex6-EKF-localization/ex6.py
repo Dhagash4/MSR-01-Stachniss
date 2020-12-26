@@ -4,7 +4,6 @@ import matplotlib.transforms as transforms
 import numpy as np
 from matplotlib.patches import Ellipse
 from math import sin,cos,atan2,sqrt
-import ipdb
 import pickle
 
 def plot_state(mu, S, M):
