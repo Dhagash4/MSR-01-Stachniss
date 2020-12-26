@@ -3,15 +3,16 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import math
 
 def world2map(pose, gridmap, map_res):
+    
     max_y = np.size(gridmap, 0) - 1
     new_pose = np.zeros_like(pose)
     new_pose[0] = np.round(pose[0] / map_res)
     new_pose[1] = max_y - np.round(pose[1] / map_res)
-    return new_pose.astype(int)
 
+    return new_pose.astype(int)
 
 def v2t(pose):
     c = np.cos(pose[2])
@@ -19,14 +20,12 @@ def v2t(pose):
     tr = np.array([[c, -s, pose[0]], [s, c, pose[1]], [0, 0, 1]])
     return tr
 
-
 def t2v(tr):
     x = tr[0, 2]
     y = tr[1, 2]
     th = np.arctan2(tr[1, 0], tr[0, 0])
     v = np.array([x, y, th])
     return v
-
 
 def ranges2points(ranges, angles):
     # rays within range
@@ -41,7 +40,6 @@ def ranges2points(ranges, angles):
     points_hom = np.append(points, np.ones((1, np.size(points, 1))), axis=0)
     return points_hom
 
-
 def ranges2cells(r_ranges, r_angles, w_pose, gridmap, map_res):
     # ranges to points
     r_points = ranges2points(r_ranges, r_angles)
@@ -49,15 +47,14 @@ def ranges2cells(r_ranges, r_angles, w_pose, gridmap, map_res):
     w_points = np.matmul(w_P, r_points)
     # world to map
     m_points = world2map(w_points, gridmap, map_res)
+    
     m_points = m_points[0:2, :]
     return m_points
-
 
 def poses2cells(w_pose, gridmap, map_res):
     # covert to map frame
     m_pose = world2map(w_pose, gridmap, map_res)
     return m_pose
-
 
 def init_uniform(num_particles, img_map, map_res):
     particles = np.zeros((num_particles, 4))
@@ -69,7 +66,6 @@ def init_uniform(num_particles, img_map, map_res):
     particles[:, 3] = 1.0
     return particles
 
-
 def plot_particles(particles, img_map, map_res):
     plt.matshow(img_map, cmap="gray")
     max_y = np.size(img_map, 0) - 1
@@ -79,3 +75,85 @@ def plot_particles(particles, img_map, map_res):
     plt.xlim(0, np.size(img_map, 1))
     plt.ylim(0, np.size(img_map, 0))
     plt.show()
+
+
+def sample_distribution(std):
+
+    return ((math.sqrt(6)/2)*(np.random.uniform(-std,std)+np.random.uniform(-std,std)))
+
+def sample_motion_model(x_init,u_t,alpha,grid_map,map_res):
+
+    rot1,trans, rot2 = u_t[0],u_t[1],u_t[2]
+
+    rot1_hat = rot1 + sample_distribution(alpha[0]* abs(rot1)+ alpha[1]*trans)
+    trans_hat = trans + sample_distribution(alpha[2]*trans + alpha[3] * (abs(rot1)+ abs(rot2)))
+    rot2_hat  = rot2 + sample_distribution(alpha[0] * abs(rot2)  + alpha[1] * trans)
+
+    x_new = x_init[0] + trans_hat * np.cos(x_init[2]+rot1_hat)
+    y_new = x_init[1] + trans_hat * np.sin(x_init[2]+rot1_hat)
+    theta_new = x_init[2] + rot1_hat + rot2_hat
+    
+    # x_new %= (grid_map.shape[0] * map_res)
+    # y_new %= (grid_map.shape[1] * map_res)
+
+    return np.array([x_new,y_new,theta_new,1.0])
+
+def compute_weights(pose,obs,gridmap,map_res,lookup_table):
+
+    weight = 1
+
+    sensor_coordinates = ranges2cells(obs[1,:].reshape(37,1),obs[0,:].reshape(37,1),pose,gridmap,map_res).T
+    
+    for i in range(sensor_coordinates.shape[0]):
+        
+        if 0<sensor_coordinates[i,0]<lookup_table.shape[1] and 0<sensor_coordinates[i,1]<lookup_table.shape[1]:
+            
+            weight = weight * lookup_table[sensor_coordinates[i,1],sensor_coordinates[i,0]]
+        else:
+
+            weight = 1.e-300
+    
+    return weight
+
+
+def resample(weights,particles):
+
+    resampled_particles = np.zeros_like(particles) 
+    J = particles.shape[0]
+    r = np.random.uniform(0,1/J)
+    c = weights[0]
+    i = 0
+    for j in range(J):
+        
+        U = r + ((j-1) * (1/J))
+        
+        while (U > c):
+            i += 1 
+            c = c + weights[i]
+        
+        resampled_particles[j] = particles[i]
+
+    return resampled_particles
+
+if __name__ == "__main__":
+    
+    data = pickle.load(open("dataset_mit_csail.p", "rb"))
+
+    num_particles = 5000
+    map_res = 0.1
+
+    particles = init_uniform(num_particles, data['img_map'], map_res)
+    # ex.plot_particles(particles, data['img_map'], map_res)
+    alpha = np.array([0.1,0.1,0.1,0.1])
+    for k in range(0,len(data['odom'])):
+        print(k)
+        weights = np.zeros((num_particles,1))
+        u_t = data['odom'][k]
+        z = data['z'][k]
+        for i in range(num_particles):
+            particles[i] = sample_motion_model(particles[i],u_t,alpha,data['img_map'],map_res)
+            weights[i]   = compute_weights(particles[i],z,data['img_map'],map_res,data['likelihood_map'])
+        weights = weights/sum(weights)
+        particles = resample(weights,particles)
+  
+    plot_particles(particles, data['img_map'], map_res)
