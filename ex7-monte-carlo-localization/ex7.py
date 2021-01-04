@@ -145,7 +145,7 @@ if __name__ == "__main__":
     particles = init_uniform(num_particles, data['img_map'], map_res)
     # ex.plot_particles(particles, data['img_map'], map_res)
     alpha = np.array([0.1,0.1,0.1,0.1])
-    for k in range(0,len(data['odom'])):
+    for k in range(0,10):
         print(k)
         weights = np.zeros((num_particles,1))
         u_t = data['odom'][k]
