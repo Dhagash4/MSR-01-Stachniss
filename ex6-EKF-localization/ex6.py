@@ -18,8 +18,8 @@ def plot_state(mu, S, M):
     # visualize result
     plt.plot(mu[0], mu[1], '.b')
     plot_2dcov(mu, S)
-    plt.draw()
-    plt.pause(0.01)
+    # plt.draw()
+    # plt.pause(0.01)
 
 
 def plot_2dcov(mu, cov):
@@ -121,41 +121,3 @@ def ekf_correct(mu_bar,sigma_bar,z,Q,M):
     
     
     return mu_bar,sigma_bar
-
-if __name__ == "__main__":
-    
-    data = pickle.load(open("dataset_2d_landmarks.p", "rb"))
-
-    # get landmark coordinates 
-    M = data['M']
-
-    # get ground truth trajectory
-    gt_traj = data['gt']
-    # 3x3 process noise
-    sigma_x = 0.25  # [m]
-    sigma_y = 0.25  # [m]
-    sigma_theta = np.deg2rad(10)  # [rad]
-    R = np.diag(np.array([sigma_x, sigma_y, sigma_theta])**2)
-
-    # 2x2 observation noise
-    sigma_r = 0.1  # [m]
-    sigma_phi = np.deg2rad(5)  # [rad]
-    Q = np.diag(np.array([sigma_r, sigma_phi])**2)
-
-    # initial state
-    mu = np.array([2, 2, np.pi/2]) 
-    S = np.array([[1, 0, 0],[0, 1, 0], [0, 0, np.pi/3]])
-
-#     # visualize
-#     # plt.figure()
-#     # ex.plot_state(mu, S, M)
-    
-    for i in range(1,len(data['odom'])):
-       
-        u_t = [data['odom'][i-1],data['odom'][i]]
-        z = data['z'][i]
-
-        mu_bar,sigma_bar = ekf_predict(mu.reshape(3,1),S,u_t,R)
-  
-        mu,S = ekf_correct(mu_bar,sigma_bar,z,Q,M)
-        plot_state(mu,S,M)

@@ -111,7 +111,7 @@ def compute_weights(pose,obs,gridmap,map_res,lookup_table):
             weight = weight * lookup_table[sensor_coordinates[i,1],sensor_coordinates[i,0]]
         else:
 
-            weight = 1.e-300
+            weight = weight * 1.e-300
     
     return weight
 
@@ -123,6 +123,7 @@ def resample(weights,particles):
     r = np.random.uniform(0,1/J)
     c = weights[0]
     i = 0
+    
     for j in range(J):
         
         U = r + ((j-1) * (1/J))
@@ -145,7 +146,7 @@ if __name__ == "__main__":
     particles = init_uniform(num_particles, data['img_map'], map_res)
     # ex.plot_particles(particles, data['img_map'], map_res)
     alpha = np.array([0.1,0.1,0.1,0.1])
-    for k in range(0,10):
+    for k in range(0,len(data['odom'])):
         print(k)
         weights = np.zeros((num_particles,1))
         u_t = data['odom'][k]
