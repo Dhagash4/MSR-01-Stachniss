@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import pickle
-
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -144,30 +143,3 @@ def resample(weights,particles):
         resampled_particles[j-1] = particles[i]
     
     return resampled_particles
-
-# if __name__ == "__main__":
-    
-#     data = pickle.load(open("dataset_mit_csail.p", "rb"))
-
-#     num_particles = 5000
-#     map_res = 0.1
-
-#     particles = init_uniform(num_particles, data['img_map'], map_res)
-#     # ex.plot_particles(particles, data['img_map'], map_res)
-#     alpha = np.array([0.1,0.1,0.1,0.1])
-#     for k in range(0,len(data['odom'])):
-#         if (k%100 == 0):
-#             print(k)
-#             plot_particles(particles, data['img_map'], map_res)
-            
-
-#         weights = np.zeros((num_particles,1))
-#         u_t = data['odom'][k]
-#         z = data['z'][k]
-#         for i in range(num_particles):
-#             particles[i] = sample_motion_model(particles[i],u_t,alpha,data['img_map'],map_res)
-#             weights[i]   = compute_weights(particles[i],z,data['img_map'],map_res,data['likelihood_map'])
-#         weights = weights/sum(weights)
-#         particles = resample(weights,particles)
-  
-#     plot_particles(particles, data['img_map'], map_res)
