@@ -67,6 +67,7 @@ def init_uniform(num_particles, img_map, map_res):
     return particles
 
 def plot_particles(particles, img_map, map_res):
+
     plt.matshow(img_map, cmap="gray")
     max_y = np.size(img_map, 0) - 1
     xs = np.copy(particles[:, 0]) / map_res
@@ -76,10 +77,19 @@ def plot_particles(particles, img_map, map_res):
     plt.ylim(0, np.size(img_map, 0))
     plt.show()
 
+def wrapToPi(theta):
+    while theta < -np.pi:
+        theta = theta + 2 * np.pi
+    while theta > np.pi:
+        theta = theta - 2 * np.pi
+    return theta
+
 
 def sample_distribution(std):
 
-    return ((math.sqrt(6)/2)*(np.random.uniform(-std,std)+np.random.uniform(-std,std)))
+    sd = np.random.uniform(-std,std,12)
+    return np.sum(sd)/2
+
 
 def sample_motion_model(x_init,u_t,alpha,grid_map,map_res):
 
@@ -91,10 +101,8 @@ def sample_motion_model(x_init,u_t,alpha,grid_map,map_res):
 
     x_new = x_init[0] + trans_hat * np.cos(x_init[2]+rot1_hat)
     y_new = x_init[1] + trans_hat * np.sin(x_init[2]+rot1_hat)
-    theta_new = x_init[2] + rot1_hat + rot2_hat
-    
-    # x_new %= (grid_map.shape[0] * map_res)
-    # y_new %= (grid_map.shape[1] * map_res)
+    theta_new = wrapToPi(x_init[2] + rot1_hat + rot2_hat)
+
 
     return np.array([x_new,y_new,theta_new,1.0])
 
@@ -106,12 +114,13 @@ def compute_weights(pose,obs,gridmap,map_res,lookup_table):
     
     for i in range(sensor_coordinates.shape[0]):
         
-        if 0<sensor_coordinates[i,0]<lookup_table.shape[1] and 0<sensor_coordinates[i,1]<lookup_table.shape[1]:
+        if 0<sensor_coordinates[i,0]<lookup_table.shape[1] and 0<sensor_coordinates[i,1]<lookup_table.shape[0]:
             
             weight = weight * lookup_table[sensor_coordinates[i,1],sensor_coordinates[i,0]]
+        
         else:
 
-            weight = weight * 1.e-300
+            weight = 1e-300
     
     return weight
 
@@ -120,41 +129,45 @@ def resample(weights,particles):
 
     resampled_particles = np.zeros_like(particles) 
     J = particles.shape[0]
-    r = np.random.uniform(0,1/J)
+    r = np.random.uniform(0,1.0/J)
     c = weights[0]
     i = 0
     
-    for j in range(J):
+    for j in range(1,J+1):
         
-        U = r + ((j-1) * (1/J))
+        U = r + ((j-1) * (1.0/J))
         
         while (U > c):
-            i += 1 
+            i = ((i + 1) % particles.shape[0])
             c = c + weights[i]
-        
-        resampled_particles[j] = particles[i]
-
+       
+        resampled_particles[j-1] = particles[i]
+    
     return resampled_particles
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    data = pickle.load(open("dataset_mit_csail.p", "rb"))
+#     data = pickle.load(open("dataset_mit_csail.p", "rb"))
 
-    num_particles = 5000
-    map_res = 0.1
+#     num_particles = 5000
+#     map_res = 0.1
 
-    particles = init_uniform(num_particles, data['img_map'], map_res)
-    # ex.plot_particles(particles, data['img_map'], map_res)
-    alpha = np.array([0.1,0.1,0.1,0.1])
-    for k in range(0,len(data['odom'])):
-        print(k)
-        weights = np.zeros((num_particles,1))
-        u_t = data['odom'][k]
-        z = data['z'][k]
-        for i in range(num_particles):
-            particles[i] = sample_motion_model(particles[i],u_t,alpha,data['img_map'],map_res)
-            weights[i]   = compute_weights(particles[i],z,data['img_map'],map_res,data['likelihood_map'])
-        weights = weights/sum(weights)
-        particles = resample(weights,particles)
+#     particles = init_uniform(num_particles, data['img_map'], map_res)
+#     # ex.plot_particles(particles, data['img_map'], map_res)
+#     alpha = np.array([0.1,0.1,0.1,0.1])
+#     for k in range(0,len(data['odom'])):
+#         if (k%100 == 0):
+#             print(k)
+#             plot_particles(particles, data['img_map'], map_res)
+            
+
+#         weights = np.zeros((num_particles,1))
+#         u_t = data['odom'][k]
+#         z = data['z'][k]
+#         for i in range(num_particles):
+#             particles[i] = sample_motion_model(particles[i],u_t,alpha,data['img_map'],map_res)
+#             weights[i]   = compute_weights(particles[i],z,data['img_map'],map_res,data['likelihood_map'])
+#         weights = weights/sum(weights)
+#         particles = resample(weights,particles)
   
-    plot_particles(particles, data['img_map'], map_res)
+#     plot_particles(particles, data['img_map'], map_res)
